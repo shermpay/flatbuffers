@@ -1287,6 +1287,11 @@ bool GenerateGoGRPC(const Parser &parser, const std::string &path,
 bool GenerateJavaGRPC(const Parser &parser, const std::string &path,
                       const std::string &file_name);
 
+// Generate GRPC Kotlin classes.
+// See idl_gen_grpc.cpp
+bool GenerateKotlinGRPC(const Parser &parser, const std::string &path,
+                        const std::string &file_name);
+
 // Generate GRPC Python interfaces.
 // See idl_gen_grpc.cpp.
 bool GeneratePythonGRPC(const Parser &parser, const std::string &path,

@@ -1626,10 +1626,8 @@ class KotlinCodeGenerator : public CodeGenerator {
 
   Status GenerateGrpcCode(const Parser &parser, const std::string &path,
                           const std::string &filename) override {
-    (void)parser;
-    (void)path;
-    (void)filename;
-    return Status::NOT_IMPLEMENTED;
+    if (!GenerateKotlinGRPC(parser, path, filename)) { return Status::ERROR; }
+    return Status::OK;
   }
 
   Status GenerateRootFile(const Parser &parser,

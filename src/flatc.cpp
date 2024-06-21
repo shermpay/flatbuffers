@@ -182,6 +182,7 @@ const static FlatCOption flatc_options[] = {
     "* 'error' - An error message will be shown and the fbs generation will be "
     "interrupted." },
   { "", "grpc", "", "Generate GRPC interfaces for the specified languages." },
+  { "", "grpc-only", "", "Only generate GRPC interfaces for the specified languages." },
   { "", "schema", "", "Serialize schemas instead of JSON (use with -b)." },
   { "", "bfbs-filenames", "PATH",
     "Sets the root path where reflection filenames in reflection.fbs are "
@@ -602,7 +603,15 @@ FlatCOptions FlatCompiler::ParseFromCommandLineArguments(int argc,
         printf("%s\n", GetUsageString(options.program_name).c_str());
         exit(0);
       } else if (arg == "--grpc") {
-        options.grpc_enabled = true;
+        if (options.grpc_enabled != GrpcEnabled::kDisabled) {
+          Error("cannot specify --grpc and --grpc-only", true);
+        }
+        options.grpc_enabled = GrpcEnabled::kEnabled;
+      } else if (arg == "--grpc-only") {
+        if (options.grpc_enabled != GrpcEnabled::kDisabled) {
+          Error("cannot specify --grpc and --grpc-only", true);
+        }
+        options.grpc_enabled = GrpcEnabled::kOnly;
       } else if (arg == "--bfbs-comments") {
         opts.binary_schema_comments = true;
       } else if (arg == "--bfbs-builtins") {
@@ -928,33 +937,35 @@ std::unique_ptr<Parser> FlatCompiler::GenerateCode(const FlatCOptions &options,
                 code_generator->LanguageName());
         }
       } else {
-        flatbuffers::EnsureDirExists(options.output_path);
+        if (options.grpc_enabled != GrpcEnabled::kOnly) {
+          flatbuffers::EnsureDirExists(options.output_path);
 
-        // Prefer bfbs generators if present.
-        if (code_generator->SupportsBfbsGeneration()) {
-          CodeGenOptions code_gen_options;
-          code_gen_options.output_path = options.output_path;
+	  // Prefer bfbs generators if present.
+	  if (code_generator->SupportsBfbsGeneration()) {
+	    CodeGenOptions code_gen_options;
+	    code_gen_options.output_path = options.output_path;
 
-          const CodeGenerator::Status status = code_generator->GenerateCode(
-              bfbs_buffer, bfbs_length, code_gen_options);
-          if (status != CodeGenerator::Status::OK) {
-            Error("Unable to generate " + code_generator->LanguageName() +
-                  " for " + filebase + code_generator->status_detail +
-                  " using bfbs generator.");
+            const CodeGenerator::Status status = code_generator->GenerateCode(
+		bfbs_buffer, bfbs_length, code_gen_options);
+            if (status != CodeGenerator::Status::OK) {
+              Error("Unable to generate " + code_generator->LanguageName() +
+                    " for " + filebase + code_generator->status_detail +
+                    " using bfbs generator.");
+            }
+          } else {
+            if ((!code_generator->IsSchemaOnly() ||
+		 (is_schema || is_binary_schema)) &&
+		code_generator->GenerateCode(*parser, options.output_path,
+                                             filebase) !=
+                CodeGenerator::Status::OK) {
+              Error("Unable to generate " + code_generator->LanguageName() +
+                    " for " + filebase + code_generator->status_detail);
+            }
           }
-        } else {
-          if ((!code_generator->IsSchemaOnly() ||
-               (is_schema || is_binary_schema)) &&
-              code_generator->GenerateCode(*parser, options.output_path,
-                                           filebase) !=
-                  CodeGenerator::Status::OK) {
-            Error("Unable to generate " + code_generator->LanguageName() +
-                  " for " + filebase + code_generator->status_detail);
-          }
-        }
+	}
       }
 
-      if (options.grpc_enabled) {
+      if (options.grpc_enabled != GrpcEnabled::kDisabled) {
         const CodeGenerator::Status status = code_generator->GenerateGrpcCode(
             *parser, options.output_path, filebase);
 

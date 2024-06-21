@@ -33,6 +33,12 @@ namespace flatbuffers {
 extern void LogCompilerWarn(const std::string &warn);
 extern void LogCompilerError(const std::string &err);
 
+enum class GrpcEnabled {
+  kDisabled,
+  kEnabled,
+  kOnly,
+};
+
 struct FlatCOptions {
   IDLOptions opts;
 
@@ -54,7 +60,7 @@ struct FlatCOptions {
   bool print_make_rules = false;
   bool raw_binary = false;
   bool schema_binary = false;
-  bool grpc_enabled = false;
+  GrpcEnabled grpc_enabled = GrpcEnabled::kDisabled;
   bool requires_bfbs = false;
   bool file_names_only = false;
 

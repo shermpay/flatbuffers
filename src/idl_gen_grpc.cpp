@@ -25,6 +25,7 @@
 #include "src/compiler/cpp_generator.h"
 #include "src/compiler/go_generator.h"
 #include "src/compiler/java_generator.h"
+#include "src/compiler/kotlin_generator.h"
 #include "src/compiler/python_generator.h"
 #include "src/compiler/swift_generator.h"
 #include "src/compiler/ts_generator.h"
@@ -219,6 +220,7 @@ class FlatBufFile : public grpc_generator::File {
     kLanguageGo,
     kLanguageCpp,
     kLanguageJava,
+    kLanguageKotlin,
     kLanguagePython,
     kLanguageSwift,
     kLanguageTS
@@ -269,7 +271,8 @@ class FlatBufFile : public grpc_generator::File {
       case kLanguageGo: {
         return "import \"github.com/google/flatbuffers/go\"";
       }
-      case kLanguageJava: {
+    case kLanguageJava:
+    case kLanguageKotlin: {
         return "import com.google.flatbuffers.grpc.FlatbuffersUtils;";
       }
       case kLanguagePython: {
@@ -433,6 +436,41 @@ bool GenerateJavaGRPC(const Parser &parser, const std::string &path,
   }
   if (!nservices) return true;
   return JavaGRPCGenerator(parser, path, file_name).generate();
+}
+
+class KotlinGRPCGenerator : public flatbuffers::BaseGenerator {
+ public:
+  KotlinGRPCGenerator(const Parser &parser, const std::string &path,
+                    const std::string &file_name)
+      : BaseGenerator(parser, path, file_name, "", "." /*separator*/, "kotlin") {}
+
+  bool generate() {
+    FlatBufFile file(parser_, file_name_, FlatBufFile::kLanguageKotlin);
+    grpc_kotlin_generator::Parameters p;
+    for (int i = 0; i < file.service_count(); i++) {
+      auto service = file.service(i);
+      const Definition *def = parser_.services_.vec[i];
+      p.package_name =
+          def->defined_namespace->GetFullyQualifiedName("");  // file.package();
+      std::string output =
+          grpc_kotlin_generator::GenerateServiceSource(&file, service.get(), &p);
+      std::string filename =
+          NamespaceDir(*def->defined_namespace) + def->name + "Grpc.kt";
+      if (!flatbuffers::SaveFile(filename.c_str(), output, false)) return false;
+    }
+    return true;
+  }
+};
+
+bool GenerateKotlinGRPC(const Parser &parser, const std::string &path,
+                        const std::string &file_name) {
+  int nservices = 0;
+  for (auto it = parser.services_.vec.begin(); it != parser.services_.vec.end();
+       ++it) {
+    if (!(*it)->generated) nservices++;
+  }
+  if (!nservices) return true;
+  return KotlinGRPCGenerator(parser, path, file_name).generate();
 }
 
 bool GeneratePythonGRPC(const Parser &parser, const std::string &path,

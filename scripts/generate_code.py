@@ -452,6 +452,14 @@ flatc(
     prefix=swift_Wasm_prefix,
 )
 
+# Kotlin Grpc Tests
+flatc(
+    KOTLIN_OPTS + BASE_OPTS + ["--grpc-only"],
+    schema="monster_test.fbs",
+    include="include_test",
+    data="monsterdata_test.json",
+)
+
 # Nim Tests
 NIM_OPTS = BASE_OPTS + ["--nim"]
 flatc(NIM_OPTS, schema="monster_test.fbs", include="include_test")
